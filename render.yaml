@@ -20,20 +20,16 @@ services:
       mountPath: /app/data
       sizeGB: 1
 
-# ── Frontend: React Static Site ───────────────────────────────────────────
-static_sites:
-  - name: qontint-frontend
-    repo: .
+  # ── Frontend: React Static Site ───────────────────────────────────────────
+  - type: web
+    name: qontint-frontend
+    env: static
     rootDir: frontend
     buildCommand: npm install && npm run build
-    publishDir: dist
+    staticPublishDir: dist
     envVars:
       - key: VITE_API_BASE
         fromService:
           name: qontint-backend
           type: web
           property: host
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
