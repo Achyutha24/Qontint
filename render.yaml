@@ -21,7 +21,7 @@ services:
       sizeGB: 1
 
 # ── Frontend: React Static Site ───────────────────────────────────────────
-staticSites:
+static_sites:
   - name: qontint-frontend
     repo: .
     rootDir: frontend
