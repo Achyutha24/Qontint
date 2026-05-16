@@ -26,10 +26,14 @@ services:
     env: static
     rootDir: frontend
     buildCommand: npm install && npm run build
-    staticPublishDir: dist
+    staticPublishPath: ./dist
     envVars:
       - key: VITE_API_BASE
         fromService:
           name: qontint-backend
           type: web
           property: host
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
