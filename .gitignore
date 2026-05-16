@@ -1,0 +1,56 @@
+# --- Root .gitignore ---
+
+# Environment Files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Dependencies
+node_modules/
+backend/venv/
+backend/.venv/
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.tox/
+
+# Databases
+*.sqlite
+*.db
+*.db-shm
+*.db-wal
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+.next/
+out/
+
+# IDEs and Tools
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Project specific
+backend/ml_models/
+backend/logs/
+frontend/coverage/
+.gemini/

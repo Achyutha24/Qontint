@@ -1,0 +1,138 @@
+version: "3.9"
+
+services:
+  # ── FastAPI Application ──────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: qontint_api
+    ports:
+      - "8000:8000"
+    env_file: ./backend/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+      - ml_models:/app/ml_models
+    command: >
+      sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ── Celery Worker ────────────────────────────────────────────────────────────
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: qontint_celery
+    command: celery -A tasks.celery_tasks worker --loglevel=info --concurrency=4
+    env_file: ./backend/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ml_models:/app/ml_models
+
+  # ── PostgreSQL 15 ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: qontint_postgres
+    environment:
+      POSTGRES_DB: qontint
+      POSTGRES_USER: qontint
+      POSTGRES_PASSWORD: qontint_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qontint -d qontint"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Neo4j 5 Community + Graph Data Science ───────────────────────────────────
+  neo4j:
+    image: neo4j:5-community
+    container_name: qontint_neo4j
+    ports:
+      - "7474:7474"   # HTTP browser
+      - "7687:7687"   # Bolt protocol
+    environment:
+      NEO4J_AUTH: neo4j/qontint_secret
+      NEO4J_PLUGINS: '["graph-data-science"]'
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1G
+      NEO4J_dbms_memory_pagecache_size: 512m
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:7474"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
+  # ── Redis 7 ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: qontint_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Ollama (Local LLM — Free, replaces Claude/OpenAI) ────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: qontint_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    # Pull the default model on startup (llama3.1:8b — free, ~4.7GB)
+    entrypoint: >
+      sh -c "ollama serve &
+             sleep 5 &&
+             ollama pull llama3.1:8b &&
+             wait"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Remove the 'deploy' block above if you don't have a GPU (CPU inference still works)
+
+volumes:
+  postgres_data:
+  neo4j_data:
+  neo4j_logs:
+  redis_data:
+  ollama_models:
+  ml_models:
